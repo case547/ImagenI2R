@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+
 import torch
+
 
 class TsImgEmbedder(ABC):
     """
@@ -55,7 +57,6 @@ class DelayEmbedder(TsImgEmbedder):
         # Create the helper series and image to build the mapping
         self.create_mapping()
 
-
     def pad_to_square(self, x, mask=0):
         """
         Pads the input tensor x to make it square along the last two dimensions.
@@ -63,10 +64,14 @@ class DelayEmbedder(TsImgEmbedder):
         _, _, cols, rows = x.shape
         max_side = max(cols, rows)
         padding = (
-            0, max_side - rows, 0, max_side - cols)  # Padding format: (pad_left, pad_right, pad_top, pad_bottom)
+            0,
+            max_side - rows,
+            0,
+            max_side - cols,
+        )  # Padding format: (pad_left, pad_right, pad_top, pad_bottom)
 
         # Padding the last two dimensions to make them square
-        x_padded = torch.nn.functional.pad(x, padding, mode='constant', value=mask)
+        x_padded = torch.nn.functional.pad(x, padding, mode="constant", value=mask)
         return x_padded
 
     def unpad(self, x, original_shape):
@@ -92,7 +97,10 @@ class DelayEmbedder(TsImgEmbedder):
             i += 1
 
         ### SPECIAL CASE
-        if i * self.delay != self.seq_len and i * self.delay + self.embedding > self.seq_len:
+        if (
+            i * self.delay != self.seq_len
+            and i * self.delay + self.embedding > self.seq_len
+        ):
             start = i * self.delay
             end = signal[:, start:].permute(0, 2, 1).shape[-1]
             x_image[:, :, :end, i] = signal[:, start:].permute(0, 2, 1)
@@ -107,15 +115,20 @@ class DelayEmbedder(TsImgEmbedder):
 
         return x_image
 
-
     def create_mapping(self):
         """
         Creates the mapping from time series positions to image positions.
         """
         # Create the helper series
-        helper_series = torch.arange(1, self.seq_len + 1, dtype=torch.float32, device=self.device)
-        helper_series = helper_series.unsqueeze(0).unsqueeze(-1)  # Shape: (1, seq_len, 1)
-        helper_series = helper_series.repeat(self.batch_size, 1, self.num_features)  # Shape: (batch_size, seq_len, num_features)
+        helper_series = torch.arange(
+            1, self.seq_len + 1, dtype=torch.float32, device=self.device
+        )
+        helper_series = helper_series.unsqueeze(0).unsqueeze(
+            -1
+        )  # Shape: (1, seq_len, 1)
+        helper_series = helper_series.repeat(
+            self.batch_size, 1, self.num_features
+        )  # Shape: (batch_size, seq_len, num_features)
 
         # Convert the helper series to image
         helper_image = self.ts_to_img(helper_series, pad=True, mask=0)
@@ -146,7 +159,9 @@ class DelayEmbedder(TsImgEmbedder):
         batch_size, channels, rows, cols = x_image_non_square.shape
 
         # Initialize the reconstructed TS tensor
-        reconstructed_ts = torch.zeros((batch_size, self.seq_len, channels), device=self.device)
+        reconstructed_ts = torch.zeros(
+            (batch_size, self.seq_len, channels), device=self.device
+        )
 
         # Use the mapping to reconstruct the TS
         for ts_idx in range(self.seq_len):

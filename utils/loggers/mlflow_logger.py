@@ -1,25 +1,37 @@
-from .base_logger import BaseLogger
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 import numpy as np
+
+from .base_logger import BaseLogger
 
 
 def is_basic(x):
-    return isinstance(x, str) or isinstance(x, int) or isinstance(x, float) or isinstance(x, bool)
+    return (
+        isinstance(x, str)
+        or isinstance(x, int)
+        or isinstance(x, float)
+        or isinstance(x, bool)
+    )
 
 
 def convert_no_basic_to_str(sub_dict: Dict[str, Any]):
-    return {k: v if is_basic(v)
-    else str(v) if not isinstance(v, dict) else convert_no_basic_to_str(v)
-            for k, v in sub_dict.items()}
+    return {
+        k: v
+        if is_basic(v)
+        else str(v)
+        if not isinstance(v, dict)
+        else convert_no_basic_to_str(v)
+        for k, v in sub_dict.items()
+    }
 
 
 class MlflowLogger(BaseLogger):
-
     def __init__(self, ip, *args, **kwargs):
         super(MlflowLogger, self).__init__(*args, **kwargs)
         import mlflow
-        from mlflow import log_metric, log_param, log_params, log_artifacts, log_figure
         from matplotlib import pyplot as plt
+        from mlflow import log_artifacts, log_figure, log_metric, log_param, log_params
+
         mlflow.set_tracking_uri(f"http://{ip}")
         self.log_metric = log_metric
         self.log_param = log_param
@@ -41,15 +53,15 @@ class MlflowLogger(BaseLogger):
             fig, ax = self.plt.subplots()
             ax.set_axis_off()
             ax.imshow(fig)
-        self.log_figure(fig, f'{name}.png')
+        self.log_figure(fig, f"{name}.png")
 
     def log_params(self, params: Dict[str, Any]):
         for k, v in params.items():
             if isinstance(v, dict):
-                self._log_params({f'{k}/{kk}': vv for kk, vv in v.items()})
+                self._log_params({f"{k}/{kk}": vv for kk, vv in v.items()})
             else:
                 self.log_param(k, v)
-        self.mlflow.log_dict(convert_no_basic_to_str(params), 'params.json')
+        self.mlflow.log_dict(convert_no_basic_to_str(params), "params.json")
 
     def add_tags(self, tags: List[str]):
-        self.mlflow.set_tags({'tags': tags})
+        self.mlflow.set_tags({"tags": tags})

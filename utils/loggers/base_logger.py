@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 class BaseLogger(ABC):
-
     def __init__(self, no_plot: bool = False, *args, **kwargs):
         super(BaseLogger, self).__init__()
         self.no_plot = no_plot
@@ -24,7 +23,7 @@ class BaseLogger(ABC):
 
     def log_dict(self, name: str, data: Dict[str, Any], step=None):
         for k, v in data.items():
-            self.log(f'{name}/{k}', v.item(), step)
+            self.log(f"{name}/{k}", v.item(), step)
 
     def log_fig(self, name: str, fig: Any):
         if self.no_plot:
@@ -48,5 +47,5 @@ class BaseLogger(ABC):
         pass
 
     @abstractmethod
-    def log_name_params(self, name : str, params: Any):
+    def log_name_params(self, name: str, params: Any):
         pass

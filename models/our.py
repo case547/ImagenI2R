@@ -1,17 +1,20 @@
+from contextlib import contextmanager
+
 import torch
 import torch.nn as nn
-from contextlib import contextmanager
-from models.networks import EDMPrecond
+
 from models.ema import LitEma
 from models.img_transformations import DelayEmbedder
+from models.networks import EDMPrecond
+
 
 class TS2img_Karras(nn.Module):
     def __init__(self, args, device):
-        '''
+        """
         beta_1    : beta_1 of diffusion process
         beta_T    : beta_T of diffusion process
         T         : Diffusion Steps
-        '''
+        """
 
         super().__init__()
         self.P_mean = -1.2
@@ -23,8 +26,13 @@ class TS2img_Karras(nn.Module):
         self.T = args.diffusion_steps
 
         self.device = device
-        self.net = EDMPrecond(args.img_resolution, args.input_channels, channel_mult=args.ch_mult,
-                              model_channels=args.unet_channels, attn_resolutions=args.attn_resolution)
+        self.net = EDMPrecond(
+            args.img_resolution,
+            args.input_channels,
+            channel_mult=args.ch_mult,
+            model_channels=args.unet_channels,
+            attn_resolutions=args.attn_resolution,
+        )
 
         self.delay = args.delay
         self.embedding = args.embedding
@@ -32,11 +40,20 @@ class TS2img_Karras(nn.Module):
         self.batch_size = args.batch_size
         self.num_features = args.input_channels
 
-        self.ts_img = DelayEmbedder(self.device, args.seq_len, args.delay, args.embedding, self.batch_size, self.num_features)
+        self.ts_img = DelayEmbedder(
+            self.device,
+            args.seq_len,
+            args.delay,
+            args.embedding,
+            self.batch_size,
+            self.num_features,
+        )
 
         if args.ema:
             self.use_ema = True
-            self.model_ema = LitEma(self.net, decay=0.9999, use_num_upates=True, warmup=args.ema_warmup)
+            self.model_ema = LitEma(
+                self.net, decay=0.9999, use_num_upates=True, warmup=args.ema_warmup
+            )
         else:
             self.use_ema = False
 
@@ -51,10 +68,10 @@ class TS2img_Karras(nn.Module):
         return self.ts_img.img_to_ts(img)
 
     def loss_fn_irregular(self, x, mask=None):
-        '''
+        """
         x          : real data if idx==None else perturbation data
         idx        : if None (training phase), we perturbed random index.
-        '''
+        """
 
         to_log = {}
         if mask is None:
@@ -64,13 +81,13 @@ class TS2img_Karras(nn.Module):
         x = self.unpad(x * mask, x.shape)
         output = self.unpad(output * mask, x.shape)
         loss = (weight * (output - x).square()).mean()
-        to_log['karras loss'] = loss.detach().item()
+        to_log["karras loss"] = loss.detach().item()
         return loss, to_log
 
     def forward_irregular(self, x, mask, labels=None, augment_pipe=None):
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
-        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
         y, augment_labels = augment_pipe(x) if augment_pipe is not None else (x, None)
         n = torch.randn_like(y) * sigma
         masked_noise = n * (mask)

@@ -1,5 +1,6 @@
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+
 
 class TST_Decoder(nn.Module):
     def __init__(self, inp_dim, hidden_dim, layers, args):  # Fixed the method name
@@ -12,7 +13,7 @@ class TST_Decoder(nn.Module):
             hidden_size=self.hidden_dim,
             bidirectional=True,
             num_layers=layers,
-            batch_first=True
+            batch_first=True,
         )
 
         self.linear = nn.Linear(self.hidden_dim * 2, args.input_channels)

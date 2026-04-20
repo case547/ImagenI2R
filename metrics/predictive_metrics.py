@@ -20,9 +20,10 @@ Note: Use Post-hoc RNN to predict one-step ahead (last feature)
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
 from sklearn.metrics import mean_absolute_error
+
 
 def extract_time(data):
     """Returns Maximum sequence length and each sequence length.
@@ -49,12 +50,13 @@ class GRUPredictorIrregular(nn.Module):
     dynamic_rnn(GRUCell) + dense layer + sigmoid for the irregular case
     (input_size = dim, output_size = dim).
     """
+
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
         # Single-layer GRU, analogous to a TF GRUCell inside dynamic_rnn
-        self.gru = nn.GRU(input_size=input_dim,
-                          hidden_size=hidden_dim,
-                          batch_first=True)
+        self.gru = nn.GRU(
+            input_size=input_dim, hidden_size=hidden_dim, batch_first=True
+        )
         # Equivalent to tf.layers.dense(..., units=dim)
         self.dense = nn.Linear(hidden_dim, input_dim)
         self.sigmoid = nn.Sigmoid()
@@ -71,15 +73,13 @@ class GRUPredictorIrregular(nn.Module):
         # Convert lists of lengths T to a tensor
         lengths_tensor = torch.tensor(T, dtype=torch.long)
         # Pack the sequence
-        packed_X = nn.utils.rnn.pack_padded_sequence(X,
-                                                     lengths=lengths_tensor,
-                                                     batch_first=True,
-                                                     enforce_sorted=False)
+        packed_X = nn.utils.rnn.pack_padded_sequence(
+            X, lengths=lengths_tensor, batch_first=True, enforce_sorted=False
+        )
         # GRU forward
         p_outputs, _ = self.gru(packed_X)
         # Unpack
-        p_outputs, _ = nn.utils.rnn.pad_packed_sequence(p_outputs,
-                                                        batch_first=True)
+        p_outputs, _ = nn.utils.rnn.pad_packed_sequence(p_outputs, batch_first=True)
         # Dense + Sigmoid
         y_hat_logit = self.dense(p_outputs)
         y_hat = self.sigmoid(y_hat_logit)
@@ -91,23 +91,22 @@ class GRUPredictorShortTerm(nn.Module):
     This class replicates the same 'predictor' logic for the short-term case
     (input_size = dim-1, output_size = 1).
     """
+
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
-        self.gru = nn.GRU(input_size=input_dim,
-                          hidden_size=hidden_dim,
-                          batch_first=True)
+        self.gru = nn.GRU(
+            input_size=input_dim, hidden_size=hidden_dim, batch_first=True
+        )
         self.dense = nn.Linear(hidden_dim, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, X, T):
         lengths_tensor = torch.tensor(T, dtype=torch.long)
-        packed_X = nn.utils.rnn.pack_padded_sequence(X,
-                                                     lengths=lengths_tensor,
-                                                     batch_first=True,
-                                                     enforce_sorted=False)
+        packed_X = nn.utils.rnn.pack_padded_sequence(
+            X, lengths=lengths_tensor, batch_first=True, enforce_sorted=False
+        )
         p_outputs, _ = self.gru(packed_X)
-        p_outputs, _ = nn.utils.rnn.pad_packed_sequence(p_outputs,
-                                                        batch_first=True)
+        p_outputs, _ = nn.utils.rnn.pad_packed_sequence(p_outputs, batch_first=True)
         y_hat_logit = self.dense(p_outputs)
         y_hat = self.sigmoid(y_hat_logit)
         return y_hat
@@ -136,7 +135,7 @@ def predictive_score_metrics(ori_data, generated_data):
             batch_size = 4
         else:
             batch_size = 16
-        print('starting predictive score')
+        print("starting predictive score")
     else:
         batch_size = 128
 
@@ -163,12 +162,16 @@ def predictive_score_metrics(ori_data, generated_data):
         # Stack them as padded batch
         #  (the code expects shape [batch, max_seq_len-1, dim])
         # We'll find the largest time length in this batch
-        max_len_batch = max([x.shape[0] for x in X_mb])  # each x has shape (#timesteps, dim)
+        max_len_batch = max(
+            [x.shape[0] for x in X_mb]
+        )  # each x has shape (#timesteps, dim)
         # Pad them
         X_tensor = []
         Y_tensor = []
         for x, y in zip(X_mb, Y_mb):
-            x_pad = F.pad(x, (0, 0, 0, max_len_batch - x.shape[0]))  # pad time dimension
+            x_pad = F.pad(
+                x, (0, 0, 0, max_len_batch - x.shape[0])
+            )  # pad time dimension
             y_pad = F.pad(y, (0, 0, 0, max_len_batch - y.shape[0]))
             X_tensor.append(x_pad.unsqueeze(0))
             Y_tensor.append(y_pad.unsqueeze(0))

@@ -12,13 +12,14 @@ during unpickling. This way, any previously exported pickles will remain
 usable even if the original code is no longer available, or if the current
 version of the code is not consistent with what was originally pickled."""
 
-import sys
-import pickle
-import io
-import inspect
 import copy
-import uuid
+import inspect
+import io
+import pickle
+import sys
 import types
+import uuid
+
 from utils import dnnlib
 
 # ----------------------------------------------------------------------------
@@ -31,6 +32,7 @@ _src_to_module_dict = dict()  # {src: module, ...}
 
 
 # ----------------------------------------------------------------------------
+
 
 def persistent_class(orig_class):
     r"""Class decorator that extends a given class to save its source code
@@ -105,7 +107,7 @@ def persistent_class(orig_class):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            record_init_args = getattr(self, '_record_init_args', True)
+            record_init_args = getattr(self, "_record_init_args", True)
             self._init_args = copy.deepcopy(args) if record_init_args else None
             self._init_kwargs = copy.deepcopy(kwargs) if record_init_args else None
             assert orig_class.__name__ in orig_module.__dict__
@@ -125,8 +127,13 @@ def persistent_class(orig_class):
             fields = list(super().__reduce__())
             fields += [None] * max(3 - len(fields), 0)
             if fields[0] is not _reconstruct_persistent_obj:
-                meta = dict(type='class', version=_version, module_src=self._orig_module_src,
-                            class_name=self._orig_class_name, state=fields[2])
+                meta = dict(
+                    type="class",
+                    version=_version,
+                    module_src=self._orig_module_src,
+                    class_name=self._orig_class_name,
+                    state=fields[2],
+                )
                 fields[0] = _reconstruct_persistent_obj  # reconstruct func
                 fields[1] = (meta,)  # reconstruct args
                 fields[2] = None  # state dict
@@ -139,6 +146,7 @@ def persistent_class(orig_class):
 
 
 # ----------------------------------------------------------------------------
+
 
 def is_persistent(obj):
     r"""Test whether the given object or class is persistent, i.e.,
@@ -153,6 +161,7 @@ def is_persistent(obj):
 
 
 # ----------------------------------------------------------------------------
+
 
 def import_hook(hook):
     r"""Register an import hook that is called whenever a persistent object
@@ -187,6 +196,7 @@ def import_hook(hook):
 
 # ----------------------------------------------------------------------------
 
+
 def _reconstruct_persistent_obj(meta):
     r"""Hook that is called internally by the `pickle` module to unpickle
     a persistent object.
@@ -200,12 +210,12 @@ def _reconstruct_persistent_obj(meta):
     assert meta.version == _version
     module = _src_to_module(meta.module_src)
 
-    assert meta.type == 'class'
+    assert meta.type == "class"
     orig_class = module.__dict__[meta.class_name]
     decorator_class = persistent_class(orig_class)
     obj = decorator_class.__new__(decorator_class)
 
-    setstate = getattr(obj, '__setstate__', None)
+    setstate = getattr(obj, "__setstate__", None)
     if callable(setstate):
         setstate(meta.state)  # pylint: disable=not-callable
     else:
@@ -215,9 +225,9 @@ def _reconstruct_persistent_obj(meta):
 
 # ----------------------------------------------------------------------------
 
+
 def _module_to_src(module):
-    r"""Query the source code of a given Python module.
-    """
+    r"""Query the source code of a given Python module."""
     src = _module_to_src_dict.get(module, None)
     if src is None:
         src = inspect.getsource(module)
@@ -227,8 +237,7 @@ def _module_to_src(module):
 
 
 def _src_to_module(src):
-    r"""Get or create a Python module for the given source code.
-    """
+    r"""Get or create a Python module for the given source code."""
     module = _src_to_module_dict.get(src, None)
     if module is None:
         module_name = "_imported_module_" + uuid.uuid4().hex
@@ -241,6 +250,7 @@ def _src_to_module(src):
 
 
 # ----------------------------------------------------------------------------
+
 
 def _check_pickleable(obj):
     r"""Check that the given object is pickleable, raising an exception if
@@ -255,8 +265,11 @@ def _check_pickleable(obj):
             return [[recurse(x), recurse(y)] for x, y in obj.items()]
         if isinstance(obj, (str, int, float, bool, bytes, bytearray)):
             return None  # Python primitive types are pickleable.
-        if f'{type(obj).__module__}.{type(obj).__name__}' in ['numpy.ndarray', 'torch.Tensor',
-                                                              'torch.nn.parameter.Parameter']:
+        if f"{type(obj).__module__}.{type(obj).__name__}" in [
+            "numpy.ndarray",
+            "torch.Tensor",
+            "torch.nn.parameter.Parameter",
+        ]:
             return None  # NumPy arrays and PyTorch tensors are pickleable.
         if is_persistent(obj):
             return None  # Persistent objects are pickleable, by virtue of the constructor check.
@@ -264,5 +277,6 @@ def _check_pickleable(obj):
 
     with io.BytesIO() as f:
         pickle.dump(recurse(obj), f)
+
 
 # ----------------------------------------------------------------------------

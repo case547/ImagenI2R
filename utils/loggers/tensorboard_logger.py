@@ -1,11 +1,13 @@
+from typing import Any, Dict, List
+
 from .base_logger import BaseLogger
-from typing import Dict, Any, List
+
 
 class TensorboardLogger(BaseLogger):
-
     def __init__(self, tb_dir, *args, **kwargs):
         super(TensorboardLogger, self).__init__(*args, **kwargs)
         from torch.utils.tensorboard import SummaryWriter
+
         self.writer = SummaryWriter(tb_dir)
 
     def stop(self):
@@ -21,4 +23,4 @@ class TensorboardLogger(BaseLogger):
         self.writer.add_hparams(params, {})
 
     def add_tags(self, tags: List[str]):
-        self.writer.add_text('tags', str(tags))
+        self.writer.add_text("tags", str(tags))

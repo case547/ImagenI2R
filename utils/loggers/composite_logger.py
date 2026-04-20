@@ -4,7 +4,6 @@ from .base_logger import BaseLogger
 
 
 class CompositeLogger(BaseLogger):
-
     def __init__(self, loggers, *args, **kwargs):
         super(CompositeLogger, self).__init__(*args, **kwargs)
         self.loggers = loggers
@@ -39,6 +38,6 @@ class CompositeLogger(BaseLogger):
         for logger in self.loggers:
             logger.add_tags(tags)
 
-    def log_name_params(self, name : str, params: Any):
+    def log_name_params(self, name: str, params: Any):
         for logger in self.loggers:
             logger.log_name_params(name, params)

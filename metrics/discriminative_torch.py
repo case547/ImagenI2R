@@ -1,7 +1,8 @@
-import torch
 import numpy as np
+import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score
+
 
 def train_test_divide(data_x, data_x_hat, train_rate=0.8):
     """Divide train and test data for both original and synthetic data.
@@ -16,8 +17,8 @@ def train_test_divide(data_x, data_x_hat, train_rate=0.8):
     # Divide train/test index (original data)
     no = len(data_x)
     idx = np.random.permutation(no)
-    train_idx = idx[:int(no * train_rate)]
-    test_idx = idx[int(no * train_rate):]
+    train_idx = idx[: int(no * train_rate)]
+    test_idx = idx[int(no * train_rate) :]
 
     train_x = [data_x[i] for i in train_idx]
     test_x = [data_x[i] for i in test_idx]
@@ -25,13 +26,14 @@ def train_test_divide(data_x, data_x_hat, train_rate=0.8):
     # Divide train/test index (synthetic data)
     no = len(data_x_hat)
     idx = np.random.permutation(no)
-    train_idx = idx[:int(no * train_rate)]
-    test_idx = idx[int(no * train_rate):]
+    train_idx = idx[: int(no * train_rate)]
+    test_idx = idx[int(no * train_rate) :]
 
     train_x_hat = [data_x_hat[i] for i in train_idx]
     test_x_hat = [data_x_hat[i] for i in test_idx]
 
     return train_x, train_x_hat, test_x, test_x_hat
+
 
 def batch_generator(data, batch_size):
     """Mini-batch generator.
@@ -69,8 +71,13 @@ def discriminative_score_metrics(ori_data, generated_data, args):
             super(Discriminator, self).__init__()
 
             # tensor should be [b,l,c]
-            self.rnn = nn.GRU(input_size=inp_dim, hidden_size=hidden_dim, bidirectional=False,
-                              num_layers=1, batch_first=True)
+            self.rnn = nn.GRU(
+                input_size=inp_dim,
+                hidden_size=hidden_dim,
+                bidirectional=False,
+                num_layers=1,
+                batch_first=True,
+            )
 
             self.linear = nn.Linear(hidden_dim, 1)
 
@@ -83,7 +90,9 @@ def discriminative_score_metrics(ori_data, generated_data, args):
     model = Discriminator(args.input_size, hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
-    train_x, train_x_hat, test_x, test_x_hat = train_test_divide(ori_data, generated_data)
+    train_x, train_x_hat, test_x, test_x_hat = train_test_divide(
+        ori_data, generated_data
+    )
 
     train_loss = 0.0
 
@@ -100,8 +109,12 @@ def discriminative_score_metrics(ori_data, generated_data, args):
         real_labels = torch.ones_like(y_logit_real)
         fake_labels = torch.zeros_like(y_logit_fake)
 
-        d_loss_real = nn.functional.binary_cross_entropy_with_logits(y_logit_real, real_labels).mean()
-        d_loss_fake = nn.functional.binary_cross_entropy_with_logits(y_logit_fake, fake_labels).mean()
+        d_loss_real = nn.functional.binary_cross_entropy_with_logits(
+            y_logit_real, real_labels
+        ).mean()
+        d_loss_fake = nn.functional.binary_cross_entropy_with_logits(
+            y_logit_fake, fake_labels
+        ).mean()
 
         d_loss = d_loss_real + d_loss_fake
 
@@ -112,7 +125,7 @@ def discriminative_score_metrics(ori_data, generated_data, args):
         train_loss += d_loss.cpu().item()
 
     model.eval()
-    with (torch.no_grad()):
+    with torch.no_grad():
         test_x = torch.stack(test_x).to(device)
         test_x_hat = torch.stack(test_x_hat).to(device)
         _, y_pred_real_curr = model(test_x.float())
@@ -121,10 +134,24 @@ def discriminative_score_metrics(ori_data, generated_data, args):
         y_pred_real_curr = y_pred_real_curr.detach().cpu().numpy()
         y_pred_fake_curr = y_pred_fake_curr.detach().cpu().numpy()
 
-        y_pred_final = np.squeeze(np.concatenate((y_pred_real_curr, y_pred_fake_curr), axis=0))
+        y_pred_final = np.squeeze(
+            np.concatenate((y_pred_real_curr, y_pred_fake_curr), axis=0)
+        )
         y_label_final = np.concatenate(
-            (np.ones([y_pred_real_curr.shape[1], ]), np.zeros([y_pred_fake_curr.shape[1], ])),
-            axis=0)
+            (
+                np.ones(
+                    [
+                        y_pred_real_curr.shape[1],
+                    ]
+                ),
+                np.zeros(
+                    [
+                        y_pred_fake_curr.shape[1],
+                    ]
+                ),
+            ),
+            axis=0,
+        )
 
         # Compute the accuracy
         acc = accuracy_score(y_label_final, (y_pred_final > 0.5).reshape(-1))
