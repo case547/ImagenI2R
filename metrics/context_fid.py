@@ -2,7 +2,11 @@ import pickle
 import random
 from datetime import datetime
 
+import numpy as np
 import scipy
+import torch
+import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -97,7 +101,7 @@ def init_dl_program(
             torch.set_num_interop_threads(max_threads)  # interop
         try:
             import mkl
-        except:
+        except Exception:
             pass
         else:
             mkl.set_num_threads(max_threads)
@@ -132,9 +136,6 @@ def init_dl_program(
         torch.backends.cuda.matmul.allow_tf32 = use_tf32
 
     return devices if len(devices) > 1 else devices[0]
-
-
-from torch import nn
 
 
 class SamePadConv(nn.Module):
@@ -201,10 +202,6 @@ class DilatedConvEncoder(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
-
-import numpy as np
-from torch import nn
 
 
 def generate_continuous_mask(B, T, n=5, l=0.1):
@@ -276,11 +273,6 @@ class TSEncoder(nn.Module):
         x = x.transpose(1, 2)  # B x T x Co
 
         return x
-
-
-import torch
-import torch.nn.functional as F
-from torch import nn
 
 
 def hierarchical_contrastive_loss(z1, z2, alpha=0.5, temporal_unit=0):
