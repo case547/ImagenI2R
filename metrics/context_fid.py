@@ -1,6 +1,7 @@
 import pickle
 import random
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import scipy
@@ -10,17 +11,19 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def pkl_save(name, var):
+def pkl_save(name: str, var: Any) -> None:
     with open(name, "wb") as f:
         pickle.dump(var, f)
 
 
-def pkl_load(name):
+def pkl_load(name: str) -> Any:
     with open(name, "rb") as f:
         return pickle.load(f)
 
 
-def torch_pad_nan(arr, left=0, right=0, dim=0):
+def torch_pad_nan(
+    arr: torch.Tensor, left: int = 0, right: int = 0, dim: int = 0
+) -> torch.Tensor:
     if left > 0:
         padshape = list(arr.shape)
         padshape[dim] = left
@@ -32,7 +35,9 @@ def torch_pad_nan(arr, left=0, right=0, dim=0):
     return arr
 
 
-def pad_nan_to_target(array, target_length, axis=0, both_side=False):
+def pad_nan_to_target(
+    array: np.ndarray, target_length: int, axis: int = 0, both_side: bool = False
+) -> np.ndarray:
     assert array.dtype in [np.float16, np.float32, np.float64]
     pad_size = target_length - array.shape[axis]
     if pad_size <= 0:
@@ -45,7 +50,7 @@ def pad_nan_to_target(array, target_length, axis=0, both_side=False):
     return np.pad(array, pad_width=npad, mode="constant", constant_values=np.nan)
 
 
-def split_with_nan(x, sections, axis=0):
+def split_with_nan(x: np.ndarray, sections: int, axis: int = 0) -> list[np.ndarray]:
     assert x.dtype in [np.float16, np.float32, np.float64]
     arrs = np.array_split(x, sections, axis=axis)
     target_length = arrs[0].shape[axis]
@@ -54,12 +59,12 @@ def split_with_nan(x, sections, axis=0):
     return arrs
 
 
-def take_per_row(A, indx, num_elem):
+def take_per_row(A: torch.Tensor, indx: np.ndarray, num_elem: int) -> torch.Tensor:
     all_indx = indx[:, None] + np.arange(num_elem)
     return A[torch.arange(all_indx.shape[0])[:, None], all_indx]
 
 
-def centerize_vary_length_series(x):
+def centerize_vary_length_series(x: np.ndarray) -> np.ndarray:
     prefix_zeros = np.argmax(~np.isnan(x).all(axis=-1), axis=1)
     suffix_zeros = np.argmax(~np.isnan(x[:, ::-1]).all(axis=-1), axis=1)
     offset = (prefix_zeros + suffix_zeros) // 2 - prefix_zeros
@@ -69,9 +74,9 @@ def centerize_vary_length_series(x):
     return x[rows, column_indices]
 
 
-def data_dropout(arr, p):
+def data_dropout(arr: np.ndarray, p: float) -> np.ndarray:
     B, T = arr.shape[0], arr.shape[1]
-    mask = np.full(B * T, False, dtype=np.bool)
+    mask = np.full(B * T, False, dtype=bool)
     ele_sel = np.random.choice(B * T, size=int(B * T * p), replace=False)
     mask[ele_sel] = True
     res = arr.copy()
@@ -79,20 +84,20 @@ def data_dropout(arr, p):
     return res
 
 
-def name_with_datetime(prefix="default"):
+def name_with_datetime(prefix: str = "default") -> str:
     now = datetime.now()
     return prefix + "_" + now.strftime("%Y%m%d_%H%M%S")
 
 
 def init_dl_program(
-    device_name,
-    seed=None,
-    use_cudnn=True,
-    deterministic=False,
-    benchmark=False,
-    use_tf32=False,
-    max_threads=None,
-):
+    device_name: str | int | list[str | int],
+    seed: int | None = None,
+    use_cudnn: bool = True,
+    deterministic: bool = False,
+    benchmark: bool = False,
+    use_tf32: bool = False,
+    max_threads: int | None = None,
+) -> torch.device | list[torch.device]:
     import torch
 
     if max_threads is not None:
@@ -204,7 +209,9 @@ class DilatedConvEncoder(nn.Module):
         return self.net(x)
 
 
-def generate_continuous_mask(B, T, n=5, l=0.1):
+def generate_continuous_mask(
+    B: int, T: int, n: int | float = 5, l: int | float = 0.1
+) -> torch.Tensor:
     res = torch.full((B, T), True, dtype=torch.bool)
     if isinstance(n, float):
         n = int(n * T)
@@ -221,7 +228,7 @@ def generate_continuous_mask(B, T, n=5, l=0.1):
     return res
 
 
-def generate_binomial_mask(B, T, p=0.5):
+def generate_binomial_mask(B: int, T: int, p: float = 0.5) -> torch.Tensor:
     return torch.from_numpy(np.random.binomial(1, p, size=(B, T))).to(torch.bool)
 
 
@@ -275,7 +282,9 @@ class TSEncoder(nn.Module):
         return x
 
 
-def hierarchical_contrastive_loss(z1, z2, alpha=0.5, temporal_unit=0):
+def hierarchical_contrastive_loss(
+    z1: torch.Tensor, z2: torch.Tensor, alpha: float = 0.5, temporal_unit: int = 0
+) -> torch.Tensor:
     loss = torch.tensor(0.0, device=z1.device)
     d = 0
     while z1.size(1) > 1:
@@ -294,7 +303,7 @@ def hierarchical_contrastive_loss(z1, z2, alpha=0.5, temporal_unit=0):
     return loss / d
 
 
-def instance_contrastive_loss(z1, z2):
+def instance_contrastive_loss(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     B, T = z1.size(0), z1.size(1)
     if B == 1:
         return z1.new_tensor(0.0)
@@ -310,7 +319,7 @@ def instance_contrastive_loss(z1, z2):
     return loss
 
 
-def temporal_contrastive_loss(z1, z2):
+def temporal_contrastive_loss(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     B, T = z1.size(0), z1.size(1)
     if T == 1:
         return z1.new_tensor(0.0)
@@ -380,7 +389,13 @@ class TS2Vec:
         self.n_epochs = 0
         self.n_iters = 0
 
-    def fit(self, train_data, n_epochs=None, n_iters=None, verbose=False):
+    def fit(
+        self,
+        train_data: np.ndarray,
+        n_epochs: int | None = None,
+        n_iters: int | None = None,
+        verbose: bool = False,
+    ) -> list[float]:
         """Training the TS2Vec model.
 
         Args:
@@ -502,7 +517,13 @@ class TS2Vec:
 
         return loss_log
 
-    def _eval_with_pooling(self, x, mask=None, slicing=None, encoding_window=None):
+    def _eval_with_pooling(
+        self,
+        x: torch.Tensor,
+        mask: str | None = None,
+        slicing: slice | None = None,
+        encoding_window: str | int | None = None,
+    ) -> torch.Tensor:
         out = self.net(x.to(self.device, non_blocking=True), mask)
         if encoding_window == "full_series":
             if slicing is not None:
@@ -548,14 +569,14 @@ class TS2Vec:
 
     def encode(
         self,
-        data,
-        mask=None,
-        encoding_window=None,
-        casual=False,
-        sliding_length=None,
-        sliding_padding=0,
-        batch_size=None,
-    ):
+        data: np.ndarray,
+        mask: str | None = None,
+        encoding_window: str | int | None = None,
+        casual: bool = False,
+        sliding_length: int | None = None,
+        sliding_padding: int = 0,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
         """Compute representations using the model.
 
         Args:
@@ -661,7 +682,7 @@ class TS2Vec:
         self.net.train(org_training)
         return output.numpy()
 
-    def save(self, fn):
+    def save(self, fn: str) -> None:
         """Save the model to a file.
 
         Args:
@@ -669,7 +690,7 @@ class TS2Vec:
         """
         torch.save(self.net.state_dict(), fn)
 
-    def load(self, fn):
+    def load(self, fn: str) -> None:
         """Load the model from a file.
 
         Args:
@@ -679,7 +700,7 @@ class TS2Vec:
         self.net.load_state_dict(state_dict)
 
 
-def calculate_fid_score(act1, act2):
+def calculate_fid_score(act1: np.ndarray, act2: np.ndarray) -> float:
     # calculate mean and covariance statistics
     mu1, sigma1 = act1.mean(axis=0), np.cov(act1, rowvar=False)
     mu2, sigma2 = act2.mean(axis=0), np.cov(act2, rowvar=False)
@@ -695,7 +716,7 @@ def calculate_fid_score(act1, act2):
     return fid
 
 
-def Context_FID(ori_data, generated_data):
+def Context_FID(ori_data: np.ndarray, generated_data: np.ndarray) -> float:
     model = TS2Vec(
         input_dims=ori_data.shape[-1],
         device=0,
@@ -714,7 +735,7 @@ def Context_FID(ori_data, generated_data):
     return results
 
 
-def display_scores(results):
+def display_scores(results: list[float]) -> tuple[float, float, float]:
     mean = np.mean(results)
     std = np.std(results, ddof=1)  # Use ddof=1 for sample standard deviation
     sem = scipy.stats.sem(results)  # Standard error of the mean
@@ -724,7 +745,9 @@ def display_scores(results):
     return round(mean, 4), round(std, 4), round(conf_interval, 4)
 
 
-def calculate_fid(real_sig, gen_sig):
+def calculate_fid(
+    real_sig: np.ndarray, gen_sig: np.ndarray
+) -> tuple[float, float, float]:
     context_fid_score = []
     iterations = 1
 

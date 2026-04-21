@@ -1,10 +1,12 @@
+from typing import Callable
+
 import numpy as np
 import scipy
 import torch
 from torch import nn
 
 
-def display_scores(results):
+def display_scores(results: list[float]) -> tuple[float, float, float]:
     mean = np.mean(results)
     std = np.std(results, ddof=1)
     sem = scipy.stats.sem(results)
@@ -14,12 +16,14 @@ def display_scores(results):
     return round(mean, 4), round(std, 4), round(conf_interval, 4)
 
 
-def random_choice(size, num_select=100):
+def random_choice(size: int, num_select: int = 100) -> np.ndarray:
     select_idx = np.random.randint(low=0, high=size, size=(num_select,))
     return select_idx
 
 
-def cacf_torch(x, max_lag, dim=(0, 1)):
+def cacf_torch(
+    x: torch.Tensor, max_lag: int, dim: tuple[int, ...] = (0, 1)
+) -> torch.Tensor:
     def get_lower_triangular_indices(n):
         return [list(x) for x in torch.tril_indices(n, n)]
 
@@ -42,7 +46,9 @@ def cacf_torch(x, max_lag, dim=(0, 1)):
         return cacf.reshape(cacf.shape[0], -1, len(ind[0]))
 
 
-def _cacf_torch_chunked(x, max_lag, dim=(0, 1), chunk_size=1000):
+def _cacf_torch_chunked(
+    x: torch.Tensor, max_lag: int, dim: tuple[int, ...] = (0, 1), chunk_size: int = 1000
+) -> torch.Tensor:
     """
     Chunked approach to avoid creating huge (B, T, ~51k) tensors at once
     when n == 321.
@@ -92,12 +98,12 @@ def _cacf_torch_chunked(x, max_lag, dim=(0, 1), chunk_size=1000):
 class Loss(nn.Module):
     def __init__(
         self,
-        name,
-        reg=1.0,
-        transform=lambda x: x,
-        threshold=10.0,
-        backward=False,
-        norm_foo=lambda x: x,
+        name: str,
+        reg: float = 1.0,
+        transform: Callable[[torch.Tensor], torch.Tensor] = lambda x: x,
+        threshold: float = 10.0,
+        backward: bool = False,
+        norm_foo: Callable[[torch.Tensor], torch.Tensor] = lambda x: x,
     ):
         super(Loss, self).__init__()
         self.name = name
@@ -107,26 +113,26 @@ class Loss(nn.Module):
         self.backward = backward
         self.norm_foo = norm_foo
 
-    def forward(self, x_fake):
+    def forward(self, x_fake: torch.Tensor) -> torch.Tensor:
         self.loss_componentwise = self.compute(x_fake)
         return self.reg * self.loss_componentwise.mean()
 
-    def compute(self, x_fake):
+    def compute(self, x_fake: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
 
     @property
-    def success(self):
+    def success(self) -> torch.Tensor:
         return torch.all(self.loss_componentwise <= self.threshold)
 
 
 class CrossCorrelLoss(Loss):
-    def __init__(self, x_real, **kwargs):
+    def __init__(self, x_real: torch.Tensor, **kwargs):
         super(CrossCorrelLoss, self).__init__(
             norm_foo=lambda x: torch.abs(x).sum(0), **kwargs
         )
         self.cross_correl_real = cacf_torch(self.transform(x_real), 1).mean(0)[0]
 
-    def compute(self, x_fake):
+    def compute(self, x_fake: torch.Tensor) -> torch.Tensor:
         cross_correl_fake = cacf_torch(self.transform(x_fake), 1).mean(0)[0]
         loss = self.norm_foo(
             cross_correl_fake - self.cross_correl_real.to(x_fake.device)
@@ -134,7 +140,9 @@ class CrossCorrelLoss(Loss):
         return loss / 10.0
 
 
-def calculate_pearson_correlation(real_sig, gen_sig):
+def calculate_pearson_correlation(
+    real_sig: np.ndarray, gen_sig: np.ndarray
+) -> tuple[float, float, float]:
     iterations = 1
 
     x_real = torch.from_numpy(real_sig)

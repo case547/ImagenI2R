@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import torch
 
@@ -7,7 +9,12 @@ from metrics.discriminative_torch import discriminative_score_metrics
 from metrics.predictive_metrics import predictive_score_metrics
 
 
-def evaluate_model_irregular(real_sig, gen_sig, args, calc_other_metrics=False):
+def evaluate_model_irregular(
+    real_sig: np.ndarray,
+    gen_sig: np.ndarray,
+    args: argparse.Namespace,
+    calc_other_metrics: bool = False,
+) -> dict[str, np.floating | float]:
     """
     Args:
         real_sig: real signal

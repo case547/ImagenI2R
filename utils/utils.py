@@ -1,15 +1,23 @@
+import argparse
 import logging
 import os
 
+import torch.nn as nn
 
-def log_config_and_tags(args, logger, name):
+from models.ema import LitEma
+from utils.loggers.base_logger import BaseLogger
+
+
+def log_config_and_tags(
+    args: argparse.Namespace, logger: BaseLogger, name: str
+) -> None:
     logger.log_name_params("config/hyperparameters", vars(args))
     logger.log_name_params("config/name", name)
     logger.add_tags(args.tags)
     logger.add_tags([args.dataset])
 
 
-def create_model_name_and_dir(args):
+def create_model_name_and_dir(args: argparse.Namespace) -> str:
     name = (
         f"conditional-"
         f"bs={args.batch_size}-"
@@ -26,14 +34,16 @@ def create_model_name_and_dir(args):
     return name
 
 
-def restore_state(args, state, ema_model=None):
+def restore_state(
+    args: argparse.Namespace, state: dict, ema_model: LitEma | None = None
+) -> int:
     logging.info("restoring checkpoint from: {}".format(args.log_dir))
     restore_checkpoint(args.log_dir, state, ema_model=ema_model)
     init_epoch = state["epoch"]
     return init_epoch
 
 
-def print_model_params(logger, model):
+def print_model_params(logger: BaseLogger, model: nn.Module) -> None:
     params_num = sum(param.numel() for param in model.parameters())
     logging.info("number of model parameters: {}".format(params_num))
     logger.log_name_params("config/params_num", params_num)

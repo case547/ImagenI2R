@@ -25,7 +25,7 @@ import torch.optim as optim
 from sklearn.metrics import mean_absolute_error
 
 
-def extract_time(data):
+def extract_time(data: np.ndarray) -> tuple[list[int], int]:
     """Returns Maximum sequence length and each sequence length.
 
     Args:
@@ -51,7 +51,7 @@ class GRUPredictorIrregular(nn.Module):
     (input_size = dim, output_size = dim).
     """
 
-    def __init__(self, input_dim, hidden_dim):
+    def __init__(self, input_dim: int, hidden_dim: int) -> None:
         super().__init__()
         # Single-layer GRU, analogous to a TF GRUCell inside dynamic_rnn
         self.gru = nn.GRU(
@@ -61,7 +61,7 @@ class GRUPredictorIrregular(nn.Module):
         self.dense = nn.Linear(hidden_dim, input_dim)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, X, T):
+    def forward(self, X: torch.Tensor, T: list[int]) -> torch.Tensor:
         """
         Emulates tf.nn.dynamic_rnn(..., sequence_length=T):
           - We pack the input according to T
@@ -92,7 +92,7 @@ class GRUPredictorShortTerm(nn.Module):
     (input_size = dim-1, output_size = 1).
     """
 
-    def __init__(self, input_dim, hidden_dim):
+    def __init__(self, input_dim: int, hidden_dim: int) -> None:
         super().__init__()
         self.gru = nn.GRU(
             input_size=input_dim, hidden_size=hidden_dim, batch_first=True
@@ -100,7 +100,7 @@ class GRUPredictorShortTerm(nn.Module):
         self.dense = nn.Linear(hidden_dim, 1)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, X, T):
+    def forward(self, X: torch.Tensor, T: list[int]) -> torch.Tensor:
         lengths_tensor = torch.tensor(T, dtype=torch.long)
         packed_X = nn.utils.rnn.pack_padded_sequence(
             X, lengths=lengths_tensor, batch_first=True, enforce_sorted=False
@@ -112,7 +112,7 @@ class GRUPredictorShortTerm(nn.Module):
         return y_hat
 
 
-def predictive_score_metrics(ori_data, generated_data):
+def predictive_score_metrics(ori_data: np.ndarray, generated_data: np.ndarray) -> float:
     """
     Report the performance of Post-hoc RNN one-step ahead prediction.
     (Irregular version: input & output dimension both = dim)

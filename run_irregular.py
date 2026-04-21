@@ -1,3 +1,4 @@
+import argparse
 import glob
 import logging
 import os
@@ -13,6 +14,7 @@ from tqdm import tqdm
 
 from metrics import evaluate_model_irregular
 from models.decoder import TST_Decoder
+from models.ema import LitEma
 from models.our import TS2img_Karras
 from models.sampler import DiffusionProcess
 from models.TST import TSTransformerEncoder
@@ -30,7 +32,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 
-def propagate_values_forward(tensor):
+def propagate_values_forward(tensor: torch.Tensor) -> torch.Tensor:
     # Iterate over the batch and channels
     for b in range(tensor.size(0)):
         # Extract the sequence for the current batch and channel
@@ -43,24 +45,24 @@ def propagate_values_forward(tensor):
     return tensor
 
 
-def propagate_values(tensor):
+def propagate_values(tensor: torch.Tensor) -> torch.Tensor:
     tensor = propagate_values_forward(tensor)
     return tensor
 
 
 def save_checkpoint(
-    args,
-    our_model,
-    our_optimizer,
-    ema_model,
-    encoder,
-    decoder,
-    tst_optimizer,
-    disc_score,
-    pred_score=None,
-    fid_score=None,
-    correlation_score=None,
-):
+    args: argparse.Namespace,
+    our_model: TS2img_Karras,
+    our_optimizer: torch.optim.Optimizer,
+    ema_model: LitEma | None,
+    encoder: TSTransformerEncoder,
+    decoder: TST_Decoder,
+    tst_optimizer: torch.optim.Optimizer,
+    disc_score: float,
+    pred_score: float | None = None,
+    fid_score: float | None = None,
+    correlation_score: float | None = None,
+) -> None:
     """
     Saves the model checkpoint to the specified directory based on args and disc_score.
     """
@@ -99,7 +101,7 @@ def save_checkpoint(
             {
                 "our_model_state_dict": our_model.state_dict(),
                 "our_optimizer_state_dict": our_optimizer.state_dict(),
-                "ema_model": ema_model.state_dict(),
+                "ema_model": ema_model.state_dict() if ema_model else None,
                 "tst_encoder": encoder.state_dict(),
                 "tst_decoder": decoder.state_dict(),
                 "tst_optimizer": tst_optimizer.state_dict(),
@@ -118,15 +120,15 @@ def save_checkpoint(
         print(f"Failed to save checkpoint: {e}")
 
 
-def _loss_e_t0(x_tilde, x):
+def _loss_e_t0(x_tilde: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
     return F.mse_loss(x_tilde, x)
 
 
-def _loss_e_0(loss_e_t0):
+def _loss_e_0(loss_e_t0: torch.Tensor) -> torch.Tensor:
     return torch.sqrt(loss_e_t0) * 10
 
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     # model name and directory
     name = create_model_name_and_dir(args)
 
@@ -226,12 +228,7 @@ def main(args):
                 torch.cuda.empty_cache()
 
             print(
-                "step: "
-                + str(step)
-                + "/"
-                + str(args.first_epoch)
-                + ", loss_e: "
-                + str(np.round(np.sqrt(loss_e_t0.item()), 4))
+                f"step: {step}/{args.first_epoch}, loss_e: {np.round(np.sqrt(loss_e_t0.item()), 4)}"
             )
 
         for epoch in range(init_epoch, args.epochs):

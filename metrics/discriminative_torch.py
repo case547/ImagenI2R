@@ -1,10 +1,16 @@
+import argparse
+
 import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score
 
 
-def train_test_divide(data_x, data_x_hat, train_rate=0.8):
+def train_test_divide(
+    data_x: torch.Tensor,
+    data_x_hat: torch.Tensor,
+    train_rate: float = 0.8,
+) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
     """Divide train and test data for both original and synthetic data.
 
     Args:
@@ -35,7 +41,7 @@ def train_test_divide(data_x, data_x_hat, train_rate=0.8):
     return train_x, train_x_hat, test_x, test_x_hat
 
 
-def batch_generator(data, batch_size):
+def batch_generator(data: list[torch.Tensor], batch_size: int) -> list[torch.Tensor]:
     """Mini-batch generator.
 
     Args:
@@ -56,7 +62,7 @@ def batch_generator(data, batch_size):
     return X_mb
 
 
-def discriminative_score_metrics(ori_data, generated_data, args):
+def discriminative_score_metrics(ori_data: np.ndarray, generated_data: np.ndarray, args: argparse.Namespace) -> float:
     ori_data, generated_data = torch.Tensor(ori_data), torch.Tensor(generated_data)
 
     # Network parameters
