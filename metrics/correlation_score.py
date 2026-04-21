@@ -28,7 +28,7 @@ def cacf_torch(
         return [list(x) for x in torch.tril_indices(n, n)]
 
     ind = get_lower_triangular_indices(x.shape[2])
-    x = (x - x.mean(dim, keepdims=True)) / x.std(dim, keepdims=True)
+    x = (x - x.mean(dim, keepdim=True)) / x.std(dim, keepdim=True)
     n = x.shape[2]
 
     if n > 1:
