@@ -85,12 +85,29 @@ class TS2img_Karras(nn.Module):
         return loss, to_log
 
     def forward_irregular(self, x, mask, labels=None, augment_pipe=None):
+        """
+        Compute the EDM denoising target and loss weight for a batch of images.
+
+        Samples a noise level sigma from a log-normal distribution, adds masked
+        Gaussian noise (only at observed positions where mask=1), then passes the
+        noisy image through the U-Net to obtain a denoised prediction. The loss
+        weight up-weights noise levels where the denoising task is hardest.
+
+        Returns the U-Net denoised prediction and the per-sample EDM loss weight.
+        """
+        # Sample noise level sigma from log-normal distribution (EDM schedule)
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
+
+        # EDM loss weight: up-weights sigma values where denoising is hardest
         weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
         y, augment_labels = augment_pipe(x) if augment_pipe is not None else (x, None)
+
+        # Scale Gaussian noise by sigma, then mask to observed positions only
         n = torch.randn_like(y) * sigma
         masked_noise = n * (mask)
+
+        # Denoise the noisy image with the U-Net
         D_yn = self.net(y + masked_noise, sigma, labels, augment_labels=augment_labels)
         return D_yn, weight
 

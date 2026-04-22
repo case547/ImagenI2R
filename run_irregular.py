@@ -244,10 +244,15 @@ def main(args: argparse.Namespace) -> None:
 
                 x_ts = propagate_values(x_ts)
                 padding_masks = ~torch.isnan(x_ts).any(dim=-1)
+
+                # Transform time series to image space and create mask
                 x_img = model.ts_to_img(x_ts)
                 mask = torch.isnan(x_img).float() * -1 + 1
+
+                # Complete time series using TST
                 h = embedder(x_ts, padding_masks)
                 x_recon = decoder(h)
+
                 x_tilde_img = model.ts_to_img(x_recon)
                 loss = model.loss_fn_irregular(x_tilde_img, mask)
                 optimizer.zero_grad()

@@ -88,28 +88,36 @@ class DelayEmbedder(TsImgEmbedder):
         if self.seq_len != length:
             self.seq_len = length
 
+        # Allocate image buffer: (batch, features, embedding, embedding)
+        # Over-allocated along the last dim; trimmed to the actual window count after the loop
         x_image = torch.zeros((batch, features, self.embedding, self.embedding))
+
+        # Slide a window of size `embedding` along the time axis with step `delay`,
+        # placing each window as a column in the image
         i = 0
         while (i * self.delay + self.embedding) <= self.seq_len:
             start = i * self.delay
             end = start + self.embedding
-            x_image[:, :, :, i] = signal[:, start:end].permute(0, 2, 1)
+            # signal[:, start:end, :] is (batch, embedding, features) -> permute to (batch, features, embedding)
+            x_image[:, :, :, i] = signal[:, start:end, :].permute(0, 2, 1)
             i += 1
 
-        ### SPECIAL CASE
+        # Handle the final partial window if the sequence length is not exactly
+        # divisible by delay - fills only the available timesteps, leaving the rest zero
         if (
             i * self.delay != self.seq_len
             and i * self.delay + self.embedding > self.seq_len
         ):
             start = i * self.delay
-            end = signal[:, start:].permute(0, 2, 1).shape[-1]
-            x_image[:, :, :end, i] = signal[:, start:].permute(0, 2, 1)
+            end = signal[:, start:, :].permute(0, 2, 1).shape[-1]
+            x_image[:, :, :end, i] = signal[:, start:, :].permute(0, 2, 1)
             i += 1
 
-        # cache the shape of the image before padding
+        # Cache the pre-padding shape for use in img_to_ts inversion
         self.img_shape = (batch, features, self.embedding, i)
         x_image = x_image.to(self.device)[:, :, :, :i]
 
+        # Pad to square so the U-Net receives a consistent input shape
         if pad:
             x_image = self.pad_to_square(x_image, mask)
 

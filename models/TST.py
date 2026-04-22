@@ -233,7 +233,7 @@ class TSTransformerEncoder(nn.Module):
             X: (batch_size, seq_length, feat_dim) torch tensor of masked features (input)
             padding_masks: (batch_size, seq_length) boolean tensor, 1 means keep vector at this position, 0 means padding
         Returns:
-            output: (batch_size, seq_length, feat_dim)
+            output: (batch_size, seq_length, d_model)
         """
 
         # permute because pytorch convention for transformers is [seq_length, batch_size, feat_dim]. padding_masks [batch_size, feat_dim]
